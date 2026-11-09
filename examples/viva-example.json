@@ -1,0 +1,132 @@
+{
+  "created": "2026-11-09T00:21:03Z",
+  "diff_file": "examples/sample.diff",
+  "diff_hash": "b91d5acf91b12724",
+  "intent": "Cap partial refunds at the order total; retry gateway timeouts",
+  "owner": "@sam",
+  "tier": "sensitive",
+  "files": [
+    "app/billing/refund.py",
+    "app/web/views.py"
+  ],
+  "anchor_pool": 8,
+  "anchors": [
+    {
+      "file": "app/billing/refund.py",
+      "line": 12,
+      "side": "new",
+      "kind": "error-path",
+      "family": "BREAK",
+      "weight": 5,
+      "sensitive": true,
+      "code": "raise RefundTooLarge(order.id, amount, already)",
+      "context": "def issue_refund(order, amount):",
+      "id": "A1",
+      "key_hint": null,
+      "marks": [
+        {
+          "mark": "SOLID",
+          "quote": "it raises RefundTooLarge when the new amount plus earlier refunds is over the total",
+          "note": "",
+          "after_explain": false,
+          "at": "2026-11-09T00:21:03Z"
+        }
+      ]
+    },
+    {
+      "file": "app/web/views.py",
+      "line": 41,
+      "side": "new",
+      "kind": "branch",
+      "family": "PREDICT",
+      "weight": 4,
+      "sensitive": true,
+      "code": "if not request.user.is_staff:",
+      "context": "def refund_view(request, order_id):",
+      "id": "A2",
+      "key_hint": null,
+      "marks": [
+        {
+          "mark": "SOLID",
+          "quote": "non-staff get forbidden() and issue_refund never runs",
+          "note": "",
+          "after_explain": false,
+          "at": "2026-11-09T00:21:03Z"
+        }
+      ]
+    },
+    {
+      "file": "app/billing/refund.py",
+      "line": 15,
+      "side": "new",
+      "kind": "io",
+      "family": "TRACE",
+      "weight": 5,
+      "sensitive": true,
+      "code": "gateway.refund(order.charge_id, amount, idempotency_key=f\"{order.id}:{already}\")",
+      "context": "def issue_refund(order, amount):",
+      "id": "A3",
+      "key_hint": null,
+      "marks": [
+        {
+          "mark": "PARTIAL",
+          "quote": "it calls the gateway with a key",
+          "note": "",
+          "after_explain": false,
+          "at": "2026-11-09T00:21:03Z"
+        },
+        {
+          "mark": "SOLID",
+          "quote": "the key is order id plus refunded-so-far, so a retry of the same refund is deduplicated but a second refund gets a new key",
+          "note": "",
+          "after_explain": false,
+          "at": "2026-11-09T00:21:03Z"
+        }
+      ]
+    },
+    {
+      "file": "app/billing/refund.py",
+      "line": 17,
+      "side": "new",
+      "kind": "error-path",
+      "family": "BREAK",
+      "weight": 5,
+      "sensitive": true,
+      "code": "except GatewayTimeout:",
+      "context": "def issue_refund(order, amount):",
+      "id": "A4",
+      "key_hint": null,
+      "marks": [
+        {
+          "mark": "MISMATCH",
+          "quote": "The loop ends and it raises, so nothing is saved",
+          "note": "",
+          "after_explain": false,
+          "at": "2026-11-09T00:21:03Z"
+        }
+      ]
+    },
+    {
+      "file": "app/billing/refund.py",
+      "line": 11,
+      "side": "new",
+      "kind": "branch",
+      "family": "PREDICT",
+      "weight": 4,
+      "sensitive": true,
+      "code": "if amount + already > order.total:",
+      "context": "def issue_refund(order, amount):",
+      "id": "A5",
+      "key_hint": null,
+      "marks": [
+        {
+          "mark": "SOLID",
+          "quote": "a first refund of exactly the total passes; one cent more raises",
+          "note": "",
+          "after_explain": false,
+          "at": "2026-11-09T00:21:03Z"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+diff --git a/app/billing/refund.py b/app/billing/refund.py
+--- a/app/billing/refund.py
++++ b/app/billing/refund.py
+@@ -10,9 +10,16 @@ def issue_refund(order, amount):
+-    if amount > order.total:
+-        raise ValueError("refund exceeds order total")
++    already = sum(r.amount for r in order.refunds)
++    if amount + already > order.total:
++        raise RefundTooLarge(order.id, amount, already)
++    for attempt in range(3):
++        try:
++            gateway.refund(order.charge_id, amount, idempotency_key=f"{order.id}:{already}")
++            break
++        except GatewayTimeout:
++            time.sleep(2 ** attempt)
+     order.refunds.append(Refund(amount=amount))
+     order.save()
+diff --git a/app/web/views.py b/app/web/views.py
+--- a/app/web/views.py
++++ b/app/web/views.py
+@@ -40,6 +40,8 @@ def refund_view(request, order_id):
+     order = Order.get(order_id)
++    if not request.user.is_staff:
++        return forbidden()
+     amount = Decimal(request.POST["amount"])
+     issue_refund(order, amount)
